@@ -38,8 +38,8 @@ public class MelonTOTP {
     private void reset(long offset) {
         synchronized (passNow) {
             for (int index = 0; index < 3; index++) {
-                passNow[index] = core.truncate(offset - index - 1) % truncateValue;
-                if (passNow[index] < 0) passNow[index] = -passNow[index];
+                passNow[index] = ((core.truncate(offset - index - 1) & 0x7FFFFFFFFFFFFFFFL) % truncateValue);
+                // password must be a positive value
             }
         }
     }
@@ -51,7 +51,7 @@ public class MelonTOTP {
     }
 
     public boolean verify(long pass) {
-        synchronized (passNow){
+        synchronized (passNow) {
             for (int index = 0; index < 3; index++) {
                 if (pass == passNow[index]) return true;
             }
