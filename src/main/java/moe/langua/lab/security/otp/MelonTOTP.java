@@ -4,41 +4,55 @@ import moe.langua.lab.security.otp.core.MelonOTPCore;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MelonTOTP {
-    final MelonOTPCore core;
-    final byte[] secretKey;
-    final long truncateValue;
-    final long[] passNow = new long[3];
-    private long offset;
+    private static final AtomicInteger initializerCounter = new AtomicInteger(0);
+    private static final AtomicInteger workerCounter = new AtomicInteger(0);
+
+    private final MelonOTPCore CORE;
+    private final String OTP_CONFIG;
+    private final float VERSION = 1.1F;
+
+    private final long truncateValue;
+    private final long[] passNow = new long[3];
+    private final long circle;
+    private final long keyOffset;
+    private long timeOffset;
 
     public MelonTOTP(byte[] secretKey, long truncateValue, long expirationTimeInMillSeconds) {
-        this.secretKey = secretKey;
+        if (expirationTimeInMillSeconds <= 0)
+            throw new IllegalArgumentException("expirationTimeInMillSeconds must be a positive value.");
+
+        this.keyOffset = secretKey.length;
         this.truncateValue = truncateValue;
-        core = new MelonOTPCore(secretKey);
+        this.circle = expirationTimeInMillSeconds;
+        CORE = new MelonOTPCore(secretKey);
         long now = System.currentTimeMillis();
-        offset = now / expirationTimeInMillSeconds;
-        long initialDelay = (offset + 1) * expirationTimeInMillSeconds - now;
-        reset(offset++);
-        new Timer().schedule(new TimerTask() {
+        timeOffset = (now / circle) * circle;
+        long initialDelay = timeOffset + circle - now;
+        reset(timeOffset);
+
+        new Timer("MelonTOTP-InitialTask-" + initializerCounter.getAndAdd(1), true).schedule(new TimerTask() {
             @Override
             public void run() {
-                new Timer().schedule(new TimerTask() {
+                new Timer("MelonTOTP-Worker-" + workerCounter.getAndAdd(1), true).schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        reset(offset++);
+                        reset(timeOffset += circle);
                     }
                 }, 0, expirationTimeInMillSeconds);
-
             }
-        }, initialDelay);
+        }, initialDelay < 0 ? 0 : initialDelay);
+
+        OTP_CONFIG = this.getClass().getName() + ",Version=" + VERSION + ",Truncate=0x" + Long.toHexString(truncateValue) + ",ExpirationTime=0x" + Long.toHexString(circle);
     }
 
 
     private void reset(long offset) {
         synchronized (passNow) {
             for (int index = 0; index < 3; index++) {
-                passNow[index] = ((core.truncate(offset - index - 1) & 0x7FFFFFFFFFFFFFFFL) % truncateValue);
+                passNow[index] = ((CORE.truncate(offset + circle * (index - 1) + keyOffset) & 0x7FFFFFFFFFFFFFFFL) % truncateValue);
                 // password must be a positive value
             }
         }
@@ -65,4 +79,16 @@ public class MelonTOTP {
         }
     }
 
+    public String getOTPConfig() {
+        return OTP_CONFIG;
+    }
+
+    public float getVersion() {
+        return VERSION;
+    }
+
+    @Override
+    public String toString() {
+        return getOTPConfig();
+    }
 }

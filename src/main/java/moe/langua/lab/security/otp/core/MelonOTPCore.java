@@ -26,7 +26,7 @@ public class MelonOTPCore {
     }
 
     public long truncate(long offset) {
-        byte[] otpRawData = hMacSha256(this.secretKey, Long.toBinaryString(Long.reverseBytes(~offset)).getBytes());
+        byte[] otpRawData = hMacSha256(this.secretKey, Long.toBinaryString(Long.reverseBytes(offset)).getBytes());
         int tail = Byte.toUnsignedInt(otpRawData[31]);
         int otpOffset = (tail % 16) + ((tail >>> 4) % 8) + (tail >>> 7);
         long otpTruncated = 0;
