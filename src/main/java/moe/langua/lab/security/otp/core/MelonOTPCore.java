@@ -11,6 +11,7 @@ public class MelonOTPCore {
 
     public MelonOTPCore(byte[] secretKey) {
         this.secretKey = secretKey;
+        truncate(0); //pre-load
     }
 
     private byte[] hMacSha256(byte[] contentByteArray, byte[] secretKeyByteArray) {

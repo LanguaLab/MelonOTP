@@ -2,17 +2,17 @@ package moe.langua.lab.security.otp;
 
 import moe.langua.lab.security.otp.core.MelonOTPCore;
 
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MelonTOTP {
-    private static final AtomicInteger initializerCounter = new AtomicInteger(0);
     private static final AtomicInteger workerCounter = new AtomicInteger(0);
 
     private final MelonOTPCore CORE;
     private final String OTP_CONFIG;
-    private final float VERSION = 1.1F;
+    private final float VERSION = 1.2F;
 
     private final long truncateValue;
     private final long[] passNow = new long[3];
@@ -28,24 +28,18 @@ public class MelonTOTP {
         this.truncateValue = truncateValue;
         this.circle = expirationTimeInMillSeconds;
         CORE = new MelonOTPCore(secretKey);
+        OTP_CONFIG = this.getClass().getName() + ",Version=" + VERSION + ",Truncate=0x" + Long.toHexString(truncateValue) + ",ExpirationTime=0x" + Long.toHexString(circle);
+
         long now = System.currentTimeMillis();
         timeOffset = (now / circle) * circle;
-        long initialDelay = timeOffset + circle - now;
         reset(timeOffset);
 
-        new Timer("MelonTOTP-InitialTask-" + initializerCounter.getAndAdd(1), true).schedule(new TimerTask() {
+        new Timer("MelonTOTP-Worker-" + workerCounter.getAndAdd(1), true).scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                new Timer("MelonTOTP-Worker-" + workerCounter.getAndAdd(1), true).schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        reset(timeOffset += circle);
-                    }
-                }, 0, expirationTimeInMillSeconds);
+                reset(timeOffset += circle);
             }
-        }, initialDelay < 0 ? 0 : initialDelay);
-
-        OTP_CONFIG = this.getClass().getName() + ",Version=" + VERSION + ",Truncate=0x" + Long.toHexString(truncateValue) + ",ExpirationTime=0x" + Long.toHexString(circle);
+        }, new Date(timeOffset + circle), circle);
     }
 
 
@@ -85,6 +79,10 @@ public class MelonTOTP {
 
     public float getVersion() {
         return VERSION;
+    }
+
+    public long nextUpdate() {
+        return timeOffset + circle;
     }
 
     @Override
