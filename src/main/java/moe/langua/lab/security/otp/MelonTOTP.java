@@ -67,6 +67,20 @@ public class MelonTOTP {
         }
     }
 
+    public boolean verify(String passAsString){
+        return verify(passAsString,10);
+    }
+
+    public boolean verify(String passAsString,int radix){
+        long pass;
+        try{
+           pass = Long.parseLong(passAsString,radix);
+        }catch (NumberFormatException e){
+            return false;
+        }
+        return verify(pass);
+    }
+
     public long getPassNow() {
         synchronized (passNow) {
             return passNow[1];
